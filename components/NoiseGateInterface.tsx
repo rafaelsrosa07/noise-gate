@@ -106,6 +106,7 @@ export default function NoiseGateInterface({ user }: { user: any }) {
   useEffect(() => {
     requestNotificationPermission();
 
+    // Verificação de segurança: Se não há índice ativo ou plano, limpa intervalo
     if (activeStepIndex === null || !plan) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       return;
@@ -113,7 +114,8 @@ export default function NoiseGateInterface({ user }: { user: any }) {
 
     const currentStep = plan.steps[activeStepIndex];
 
-    if (currentStep.is_active) {
+    if (currentStep && currentStep.is_active) {
+      // Limpa qualquer intervalo anterior para evitar duplicidade
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
 
       timerIntervalRef.current = setInterval(() => {
@@ -121,6 +123,9 @@ export default function NoiseGateInterface({ user }: { user: any }) {
           if (!prevPlan) return null;
 
           const newSteps = [...prevPlan.steps];
+          // Garante que o índice ainda é válido dentro do setPlan
+          if (activeStepIndex >= newSteps.length) return prevPlan;
+          
           const step = newSteps[activeStepIndex];
 
           if (step.time_left <= 0) {
@@ -128,6 +133,7 @@ export default function NoiseGateInterface({ user }: { user: any }) {
             step.is_active = false;
             step.time_left = 0;
 
+            // Timeout para evitar update durante renderização
             setTimeout(() => {
                 setModalOpen(true);
                 triggerNotification("⚠️ CICLO FINALIZADO", `Tarefa "${step.text}" completou o tempo.`);
@@ -147,7 +153,8 @@ export default function NoiseGateInterface({ user }: { user: any }) {
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
-  }, [activeStepIndex, plan?.steps[activeStepIndex]?.is_active]);
+    // CORREÇÃO DO ERRO DE BUILD ABAIXO: Adicionada verificação de nulidade no array de dependências
+  }, [activeStepIndex, activeStepIndex !== null ? plan?.steps[activeStepIndex]?.is_active : undefined]); 
 
   // --- HANDLERS ---
   const handleLogout = async () => {
