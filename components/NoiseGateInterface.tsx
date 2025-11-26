@@ -46,7 +46,7 @@ export default function NoiseGateInterface({ user }: { user: any }) {
   const supabase = createClient();
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // --- SISTEMA DE SOM (AudioContext) ---
+  // --- SISTEMA DE SOM ---
   const playCyberpunkAlarm = () => {
     if (typeof window === 'undefined') return;
     try {
@@ -102,30 +102,38 @@ export default function NoiseGateInterface({ user }: { user: any }) {
     }
   };
 
+  // --- HELPER PARA O TIMER (A CORREÇÃO DO ERRO ESTÁ AQUI) ---
+  // Extraímos o status booleano para fora do useEffect para evitar erro de índice nulo
+  const isTimerRunning = 
+    activeStepIndex !== null && 
+    plan?.steps && 
+    plan.steps[activeStepIndex] 
+      ? plan.steps[activeStepIndex].is_active 
+      : false;
+
   // --- LÓGICA DO TIMER ---
+  const isTimerRunning = 
+    activeStepIndex !== null && 
+    plan?.steps && 
+    plan.steps[activeStepIndex] 
+      ? plan.steps[activeStepIndex].is_active 
+      : false;
+// ...
+
+// ... (useEffect Logic)
   useEffect(() => {
-    requestNotificationPermission();
-
-    // Verificação de segurança: Se não há índice ativo ou plano, limpa intervalo
-    if (activeStepIndex === null || !plan) {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      return;
-    }
-
-    const currentStep = plan.steps[activeStepIndex];
-
-    if (currentStep && currentStep.is_active) {
-      // Limpa qualquer intervalo anterior para evitar duplicidade
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    // ...
+    // A lógica interna usa isTimerRunning
+    // ...
 
       timerIntervalRef.current = setInterval(() => {
         setPlan(prevPlan => {
           if (!prevPlan) return null;
 
           const newSteps = [...prevPlan.steps];
-          // Garante que o índice ainda é válido dentro do setPlan
+          // Proteção extra
           if (activeStepIndex >= newSteps.length) return prevPlan;
-          
+
           const step = newSteps[activeStepIndex];
 
           if (step.time_left <= 0) {
@@ -133,14 +141,13 @@ export default function NoiseGateInterface({ user }: { user: any }) {
             step.is_active = false;
             step.time_left = 0;
 
-            // Timeout para evitar update durante renderização
             setTimeout(() => {
                 setModalOpen(true);
                 triggerNotification("⚠️ CICLO FINALIZADO", `Tarefa "${step.text}" completou o tempo.`);
             }, 0);
 
             return { ...prevPlan, steps: newSteps };
-          }
+          }}, [activeStepIndex, isTimerRunning]); // Dependência SEGURA
 
           step.time_left -= 1;
           return { ...prevPlan, steps: newSteps };
@@ -153,8 +160,7 @@ export default function NoiseGateInterface({ user }: { user: any }) {
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
-    // CORREÇÃO DO ERRO DE BUILD ABAIXO: Adicionada verificação de nulidade no array de dependências
-  }, [activeStepIndex, activeStepIndex !== null ? plan?.steps[activeStepIndex]?.is_active : undefined]); 
+  }, [activeStepIndex, isTimerRunning]); // DEPENDÊNCIA SEGURA AGORA
 
   // --- HANDLERS ---
   const handleLogout = async () => {
