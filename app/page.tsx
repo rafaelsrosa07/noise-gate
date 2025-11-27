@@ -1,40 +1,67 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Image from 'next/image';
 import { LogIn, UserPlus, AlertTriangle, Terminal, Mail, Lock, Chrome } from "lucide-react";
+import NoiseGateInterface from "@/components/NoiseGateInterface";
 
-export default function AuthPage() {
+export default function HomePage() {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const router = useRouter();
   const supabase = createClient();
 
+  // Verifica autenticação ao carregar a página
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+      } catch (error) {
+        console.error("Erro ao verificar usuário:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkUser();
+
+    // Escuta mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
+
   const handleAuth = async (action: 'login' | 'signup' | 'google') => {
-    setLoading(true);
+    setAuthLoading(true);
     setErrorMessage(null);
 
     try {
       // --- LOGIN COM GOOGLE ---
       if (action === 'google') {
-        console.log("Iniciando OAuth Google..."); // Debug no console do navegador
+        console.log("Iniciando OAuth Google...");
 
         // Verifica se as variáveis de ambiente estão configuradas
         if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
           console.error("Erro: Variáveis de ambiente do Supabase não configuradas!");
           setErrorMessage("Configuração do Supabase ausente. Verifique o arquivo .env.local");
-          setLoading(false);
+          setAuthLoading(false);
           return;
         }
 
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            // Garante que volta para a página certa após o login
             redirectTo: `${window.location.origin}/auth/callback`,
             queryParams: {
               access_type: 'offline',
@@ -46,19 +73,18 @@ export default function AuthPage() {
         if (error) {
             console.error("Erro OAuth:", error);
             setErrorMessage(`Erro ao conectar com Google: ${error.message}`);
-            setLoading(false);
+            setAuthLoading(false);
             return;
         }
 
         console.log("Redirecionando para Google OAuth...", data);
-        // Não fazemos setLoading(false) aqui porque o usuário será redirecionado
         return;
       }
 
       // --- VALIDAÇÃO BÁSICA PARA EMAIL/SENHA ---
       if (!email || !password) {
         setErrorMessage("Preencha e-mail e senha.");
-        setLoading(false);
+        setAuthLoading(false);
         return;
       }
 
@@ -80,7 +106,7 @@ export default function AuthPage() {
         error = signUpError;
         if (!error) {
             setErrorMessage("Verifique seu e-mail para confirmar o cadastro.");
-            setLoading(false);
+            setAuthLoading(false);
             return;
         }
       }
@@ -88,21 +114,37 @@ export default function AuthPage() {
       if (error) {
         setErrorMessage(error.message || "Erro na autenticação.");
       } else {
+        // Após login bem-sucedido, o useEffect vai detectar a mudança e atualizar o user
         router.refresh();
-        router.push("/");
       }
     } catch (err: any) {
       console.error("Erro Geral:", err);
       setErrorMessage(err.message || "Ocorreu um erro inesperado.");
     } finally {
-      // Só remove o loading se NÃO for Google (pois Google redireciona a página)
       if (action !== 'google') {
-          setLoading(false);
+          setAuthLoading(false);
       }
     }
   };
 
-  // --- COMPONENTE VISUAL: Loader ---
+  // Loading inicial
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-black text-neutral-200 flex items-center justify-center font-mono">
+        <div className="flex items-center gap-2 text-emerald-400 animate-pulse">
+          <Terminal size={20} />
+          <span>VERIFICANDO CREDENCIAIS...</span>
+        </div>
+      </main>
+    );
+  }
+
+  // Se usuário está autenticado, mostra a interface principal
+  if (user) {
+    return <NoiseGateInterface user={user} />;
+  }
+
+  // Se não está autenticado, mostra a tela de login
   const TerminalLoader = () => (
     <div className="flex items-center gap-2 text-emerald-400 animate-pulse font-mono text-sm justify-center">
         <Terminal size={16} />
@@ -123,7 +165,7 @@ export default function AuthPage() {
 
       {/* --- CONTAINER CENTRAL --- */}
       <div className="w-full max-w-md bg-neutral-900/60 backdrop-blur-xl border border-emerald-500/20 rounded-2xl p-8 relative z-10 shadow-[0_0_50px_rgba(16,185,129,0.1)] animate-in fade-in zoom-in-95 duration-500">
-        
+
         {/* LOGO E TÍTULO */}
         <div className="text-center mb-8">
             <h1 className="text-4xl font-bold tracking-tighter text-white flex items-center justify-center gap-3 mb-2 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">
@@ -155,7 +197,7 @@ export default function AuthPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-black/50 border border-neutral-800 rounded-lg py-4 pl-12 pr-4 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 text-white placeholder:text-neutral-600 transition-all"
-                    disabled={loading}
+                    disabled={authLoading}
                 />
             </div>
             <div className="relative group">
@@ -167,14 +209,14 @@ export default function AuthPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleAuth('login')}
                     className="w-full bg-black/50 border border-neutral-800 rounded-lg py-4 pl-12 pr-4 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 text-white placeholder:text-neutral-600 transition-all"
-                    disabled={loading}
+                    disabled={authLoading}
                 />
             </div>
         </div>
 
         {/* --- ÁREA DE BOTÕES --- */}
         <div className="space-y-3">
-            {loading ? (
+            {authLoading ? (
                 <TerminalLoader />
             ) : (
                 <>
@@ -198,7 +240,7 @@ export default function AuthPage() {
                     className="w-full bg-neutral-900/80 border border-neutral-700 hover:border-emerald-500/50 hover:bg-neutral-800 text-white font-bold py-4 rounded-lg transition-all active:scale-95 tracking-wide flex items-center justify-center gap-3 group shadow-lg"
                 >
                      {/* Ícone Chrome branco ou colorido sutilmente */}
-                    <Chrome size={18} className="text-emerald-400 group-hover:scale-110 transition-transform"/> 
+                    <Chrome size={18} className="text-emerald-400 group-hover:scale-110 transition-transform"/>
                     <span>ENTRAR COM GOOGLE</span>
                 </button>
 
@@ -215,9 +257,9 @@ export default function AuthPage() {
         </div>
 
       </div>
-      
+
       <div className="absolute bottom-6 text-[10px] text-neutral-600 tracking-widest uppercase">
-        Protocolo de Segurança Ativo v1.0.6
+        Protocolo de Segurança Ativo v1.0.7
       </div>
     </main>
   );
