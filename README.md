@@ -103,13 +103,42 @@ noise-gate/
 └── public/              # Arquivos estáticos
 ```
 
+## 🔍 Verificar Configuração
+
+Antes de iniciar o projeto, você pode verificar se tudo está configurado corretamente:
+
+```bash
+node check-config.js
+```
+
+Este script verifica:
+- ✅ Existência do arquivo `.env.local`
+- ✅ Variáveis de ambiente configuradas corretamente
+- ✅ Dependências instaladas
+- ✅ Estrutura de arquivos do projeto
+
 ## 🐛 Solução de problemas
 
-### Login com Google não funciona
+### ❌ Erro: "Acesso bloqueado: a solicitação desse app é inválida"
 
-Se você está tendo problemas com autenticação do Google, consulte:
+**Este é o erro mais comum ao configurar Google OAuth!**
+
+👉 **[RESOLVER_ERRO_GOOGLE.md](./RESOLVER_ERRO_GOOGLE.md)** - Guia passo a passo para resolver este erro específico
+
+**Resumo rápido da solução:**
+1. Configure OAuth Consent Screen no Google Cloud Console
+2. Adicione seu email como Test User
+3. Configure os scopes corretos (email, profile, openid)
+4. Crie credenciais OAuth Client ID
+5. Conecte ao Supabase
+
+### Login com Google não funciona (outros erros)
+
+Se você está tendo problemas diferentes, consulte:
 
 - 📖 **[GOOGLE_AUTH_SETUP.md](./GOOGLE_AUTH_SETUP.md)** - Guia completo de configuração
+- 🔧 **[RESOLVER_ERRO_GOOGLE.md](./RESOLVER_ERRO_GOOGLE.md)** - Resolver erro "Acesso bloqueado"
+- Execute `node check-config.js` para verificar sua configuração
 - Verifique se as variáveis de ambiente estão corretas
 - Confirme que o provider Google está habilitado no Supabase
 - Verifique a URL de callback no Google Cloud Console
@@ -119,6 +148,7 @@ Se você está tendo problemas com autenticação do Google, consulte:
 - **Erro ao iniciar**: Verifique se todas as dependências foram instaladas (`npm install`)
 - **Erro de build**: Execute `npm run build` para ver erros de TypeScript
 - **Variáveis de ambiente não carregadas**: Reinicie o servidor após alterar `.env.local`
+- **Configuração incorreta**: Execute `node check-config.js` para diagnosticar
 
 ## 📝 Licença
 
