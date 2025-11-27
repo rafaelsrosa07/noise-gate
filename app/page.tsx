@@ -22,7 +22,16 @@ export default function AuthPage() {
       // --- LOGIN COM GOOGLE ---
       if (action === 'google') {
         console.log("Iniciando OAuth Google..."); // Debug no console do navegador
-        const { error } = await supabase.auth.signInWithOAuth({
+
+        // Verifica se as variáveis de ambiente estão configuradas
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+          console.error("Erro: Variáveis de ambiente do Supabase não configuradas!");
+          setErrorMessage("Configuração do Supabase ausente. Verifique o arquivo .env.local");
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
             // Garante que volta para a página certa após o login
@@ -33,13 +42,17 @@ export default function AuthPage() {
             },
           },
         });
-        
+
         if (error) {
             console.error("Erro OAuth:", error);
-            throw error;
+            setErrorMessage(`Erro ao conectar com Google: ${error.message}`);
+            setLoading(false);
+            return;
         }
+
+        console.log("Redirecionando para Google OAuth...", data);
         // Não fazemos setLoading(false) aqui porque o usuário será redirecionado
-        return; 
+        return;
       }
 
       // --- VALIDAÇÃO BÁSICA PARA EMAIL/SENHA ---
