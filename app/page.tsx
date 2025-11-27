@@ -22,10 +22,20 @@ export default function HomePage() {
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
+        console.log("🔍 Verificando autenticação...");
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log("📋 Sessão encontrada:", session ? "SIM ✅" : "NÃO ❌");
+
+        if (session?.user) {
+          console.log("👤 Usuário autenticado:", session.user.email);
+          setUser(session.user);
+        } else {
+          console.log("❌ Nenhum usuário autenticado");
+          setUser(null);
+        }
       } catch (error) {
-        console.error("Erro ao verificar usuário:", error);
+        console.error("❌ Erro ao verificar usuário:", error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -34,8 +44,17 @@ export default function HomePage() {
     checkUser();
 
     // Escuta mudanças de autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("🔔 Evento de autenticação:", event);
+      console.log("📋 Nova sessão:", session ? "SIM" : "NÃO");
+
+      if (session?.user) {
+        console.log("✅ Usuário logado:", session.user.email);
+        setUser(session.user);
+      } else {
+        console.log("❌ Usuário deslogado");
+        setUser(null);
+      }
       setLoading(false);
     });
 

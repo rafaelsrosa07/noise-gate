@@ -8,8 +8,10 @@ export async function GET(request: Request) {
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/'
 
+  console.log('🔄 Callback OAuth recebido');
+  console.log('📝 Code presente:', code ? 'SIM' : 'NÃO');
+
   if (code) {
-    // CORREÇÃO: Usando 'await' para funcionar no Next.js 15
     const cookieStore = await cookies()
 
     // Cria o cliente Supabase temporário para validar o código
@@ -22,24 +24,42 @@ export async function GET(request: Request) {
             return cookieStore.get(name)?.value
           },
           set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options })
+            try {
+              cookieStore.set({ name, value, ...options })
+            } catch (error) {
+              console.error('❌ Erro ao definir cookie:', name, error);
+            }
           },
           remove(name: string, options: CookieOptions) {
-            cookieStore.delete({ name, ...options })
+            try {
+              cookieStore.delete({ name, ...options })
+            } catch (error) {
+              console.error('❌ Erro ao remover cookie:', name, error);
+            }
           },
         },
       }
     )
-    
+
     // Troca o código por uma sessão real de usuário
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    
-    if (!error) {
-      // Se deu tudo certo, manda o usuário pra Home logado
-      return NextResponse.redirect(`${origin}${next}`)
+    console.log('🔄 Trocando código por sessão...');
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (!error && data.session) {
+      console.log('✅ Sessão criada com sucesso!');
+      console.log('👤 Usuário:', data.session.user.email);
+
+      // Força refresh da página para garantir que a sessão seja carregada
+      const response = NextResponse.redirect(`${origin}${next}`)
+      return response
+    } else {
+      console.error('❌ Erro ao criar sessão:', error);
     }
+  } else {
+    console.error('❌ Código OAuth não encontrado na URL');
   }
 
   // Se der erro, manda pra uma tela de erro
+  console.log('⚠️ Redirecionando para página de erro');
   return NextResponse.redirect(`${origin}/auth/auth-code-error`)
 }
